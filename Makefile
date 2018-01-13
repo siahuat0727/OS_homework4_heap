@@ -19,3 +19,6 @@ hw4_mm_test.o: %.o: %.c
 clean:
 	rm -rf *.o $(EXEC)
 	$(MAKE) -C $(SUBDIR) clean
+
+astyle:
+	astyle --style=linux --indent=tab --max-code-length=80 --suffix=none *.c *.h lib/*.c lib/*.h
