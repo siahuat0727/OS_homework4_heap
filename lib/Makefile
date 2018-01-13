@@ -5,7 +5,7 @@ OBJS = $(TARGETS)
 
 all: $(TARGETS)
 
-$(OBJS): %.o: %.c
+$(OBJS): %.o: %.c %.h
 	$(CC) $(CFLAGS) -c $< -o $@
 
 clean:
