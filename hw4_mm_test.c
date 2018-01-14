@@ -25,7 +25,7 @@ int main()
 	assert(b != NULL);
 	puts("malloc b  14");
 	print_bin_all();
-	
+
 	hw_free(a);
 	puts("free a");
 	print_bin_all();
