@@ -39,7 +39,7 @@ int hw_free(void *mem)
 	// TODO find which heap
 	if(!is_valid(mem))
 		return 0;
-	
+
 	struct chunk_header *chunk = get_chunk_header(mem);
 	free_chunk(chunk);
 
@@ -250,7 +250,9 @@ bool is_empty(const struct chunk_header const *bin)
 bool is_valid(void *mem)
 {
 	struct chunk_header *chunk = get_chunk_header(mem);
-	for(struct chunk_header *iter_chunk = (struct chunk_header*)(HEAP->start_brk); (void*)iter_chunk < HEAP->start_brk + HEAP->size; iter_chunk = find_next_chunk(HEAP, iter_chunk)){
+	for(struct chunk_header *iter_chunk = (struct chunk_header*)(HEAP->start_brk);
+	    (void*)iter_chunk < HEAP->start_brk + HEAP->size;
+	    iter_chunk = find_next_chunk(HEAP, iter_chunk)) {
 		printf("%p iter_chunk\n", iter_chunk);
 		if(iter_chunk == chunk)
 			return true;
@@ -303,7 +305,8 @@ void free_chunk(struct chunk_header *chunk)
 	list_add_decending(HEAP, chunk); // TODO try?
 }
 
-void print_relative_addr(const struct heap_t const *heap, struct chunk_header *chunk)
+void print_relative_addr(const struct heap_t const *heap,
+                         struct chunk_header *chunk)
 {
 	printf("0x%08llx", relative_addr(heap, chunk));
 }
@@ -328,7 +331,7 @@ void print_bin(const struct heap_t const *heap, int i)
 
 void print_bin_all()
 {
-	for (int i = 0; i < BIN_NUM; ++i){
+	for (int i = 0; i < BIN_NUM; ++i) {
 		printf("bin %d: \n", i);
 		print_bin(HEAP, i);
 		puts("");

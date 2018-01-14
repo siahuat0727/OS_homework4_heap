@@ -11,7 +11,7 @@ void next_chunk_print(struct chunk_header **chunk)
 int main()
 {
 	char buf[N_BUFFER];
-	while(fgets(buf, N_BUFFER -1, stdin)){
+	while(fgets(buf, N_BUFFER -1, stdin)) {
 		size_t alloc_bytes;
 		void *mem;
 		int bin_num;
@@ -21,7 +21,7 @@ int main()
 			printf("%s\n", hw_free(mem) ? "success" : "failed");
 		else if(sscanf(buf, "print bin[%d]", &bin_num))
 			print_bin(HEAP, bin_num);
-		else{
+		else {
 			fprintf(stderr, "can't found command: %s\n", buf);
 			exit(EXIT_FAILURE);
 		}
