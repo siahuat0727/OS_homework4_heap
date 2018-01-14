@@ -13,7 +13,7 @@ $(EXEC): $(OBJS)
 hw4_mm_test.o: %.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
-./lib/hw_malloc.o:
+./lib/hw_malloc.o: ./lib/hw_malloc.c ./lib/hw_malloc.h
 	$(MAKE) -C $(SUBDIR)
 
 clean:
