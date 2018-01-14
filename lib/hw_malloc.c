@@ -46,7 +46,7 @@ int hw_free(void *mem)
 	if(!is_valid(mem))
 		return 0;
 
-	
+
 	struct chunk_header *chunk = get_chunk_header(mem);
 	if(is_free(chunk)) // testfile 715
 		return 0;
@@ -265,10 +265,10 @@ bool is_valid(void *mem)
 		return true;
 	for(struct chunk_header *iter_chunk = find_next_chunk(HEAP, first_chunk);
 	    iter_chunk != first_chunk; iter_chunk = find_next_chunk(HEAP, iter_chunk)) {
-	//	print_relative_addr(HEAP, chunk);
-	//	printf(" chunk\t");
-	//	print_relative_addr(HEAP, iter_chunk);
-	//	printf(" iter\n");
+		//	print_relative_addr(HEAP, chunk);
+		//	printf(" chunk\t");
+		//	print_relative_addr(HEAP, iter_chunk);
+		//	printf(" iter\n");
 		if(iter_chunk == chunk)
 			return true;
 	}
@@ -288,7 +288,7 @@ struct chunk_header *try_find_free_bin(const struct chunk_header const *bin,
 	}
 	if(iter == bin)
 		return NULL;
-	while(iter != bin){
+	while(iter != bin) {
 		if(iter->prev->chunk_size > iter->chunk_size || iter->prev == bin)
 			return iter;
 		iter = iter->prev;
@@ -344,7 +344,8 @@ void print_bin(const struct heap_t const *heap, int i)
 {
 	struct chunk_header *bin = heap->bin[i];
 	for(struct chunk_header *iter = bin->next; iter != bin; iter = iter->next) {
-		printf("0x%08llx--------%llu\n", (ull)relative_addr(heap, iter), iter->chunk_size);
+		printf("0x%08llx--------%llu\n", (ull)relative_addr(heap, iter),
+		       iter->chunk_size);
 	}
 }
 
