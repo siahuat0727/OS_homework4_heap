@@ -16,9 +16,9 @@ int main()
 		void *mem;
 		int bin_num;
 		if(sscanf(buf, "alloc %lu", &alloc_bytes) == 1)
-			printf("0x%08llx\n", (ull)(hw_malloc(alloc_bytes) - (ull)HEAP->start_brk));
+			printf("0x%08llx\n", (ull)hw_malloc(alloc_bytes));
 		else if(sscanf(buf, "free %p", &mem) == 1)
-			printf("%s\n", hw_free(mem) ? "success" : "failed");
+			printf("%s\n", hw_free(mem) ? "success" : "fail");
 		else if(sscanf(buf, "print bin[%d]", &bin_num))
 			print_bin(HEAP, bin_num);
 		else {

@@ -29,18 +29,28 @@ void *hw_malloc(size_t bytes)
 //		print_relative_addr(HEAP, chunk);
 //		puts("");
 
-		return get_data_ptr(chunk);
+		return relative_addr(HEAP, get_data_ptr(chunk));
 	}
 	return NULL;
+}
+
+void relative_to_real(const struct heap_t const *heap, void **mem)
+{
+	*mem += (ull)HEAP->start_brk;
 }
 
 int hw_free(void *mem)
 {
 	// TODO find which heap
+	relative_to_real(HEAP, &mem);
 	if(!is_valid(mem))
 		return 0;
 
+	
 	struct chunk_header *chunk = get_chunk_header(mem);
+	if(is_free(chunk)) // testfile 715
+		return 0;
+
 	free_chunk(chunk);
 
 	struct chunk_header *upper_chunk = find_next_chunk(HEAP, chunk);
@@ -250,10 +260,15 @@ bool is_empty(const struct chunk_header const *bin)
 bool is_valid(void *mem)
 {
 	struct chunk_header *chunk = get_chunk_header(mem);
-	for(struct chunk_header *iter_chunk = (struct chunk_header*)(HEAP->start_brk);
-	    (void*)iter_chunk < HEAP->start_brk + HEAP->size;
-	    iter_chunk = find_next_chunk(HEAP, iter_chunk)) {
-		printf("%p iter_chunk\n", iter_chunk);
+	struct chunk_header *first_chunk = (struct chunk_header *)(HEAP->start_brk);
+	if(chunk == first_chunk)
+		return true;
+	for(struct chunk_header *iter_chunk = find_next_chunk(HEAP, first_chunk);
+	    iter_chunk != first_chunk; iter_chunk = find_next_chunk(HEAP, iter_chunk)) {
+	//	print_relative_addr(HEAP, chunk);
+	//	printf(" chunk\t");
+	//	print_relative_addr(HEAP, iter_chunk);
+	//	printf(" iter\n");
 		if(iter_chunk == chunk)
 			return true;
 	}
@@ -265,17 +280,21 @@ struct chunk_header *try_find_free_bin(const struct chunk_header const *bin,
 {
 	assert(is_empty(bin) == false);
 	const int min_size = bytes + sizeof(struct chunk_header);
-	struct chunk_header *iter = bin->next;
+	struct chunk_header *iter = bin->prev;
 	while (iter != bin) {
-		if (iter->chunk_size == min_size)
-			return iter;
-		else if(iter->chunk_size < min_size)
+		if (iter->chunk_size >= min_size)
 			break;
-		iter = iter->next;
+		iter = iter->prev;
 	}
-	if(iter->prev == bin)
+	if(iter == bin)
 		return NULL;
-	return iter->prev;
+	while(iter != bin){
+		if(iter->prev->chunk_size > iter->chunk_size || iter->prev == bin)
+			return iter;
+		iter = iter->prev;
+	}
+	assert(iter != bin);
+	return NULL;
 }
 
 struct chunk_header *try_find_free(const struct heap_t const *heap,
@@ -308,12 +327,12 @@ void free_chunk(struct chunk_header *chunk)
 void print_relative_addr(const struct heap_t const *heap,
                          struct chunk_header *chunk)
 {
-	printf("0x%08llx", relative_addr(heap, chunk));
+	printf("0x%08llx", (ull)relative_addr(heap, chunk));
 }
 
-ull relative_addr(const struct heap_t const *heap, struct chunk_header *chunk)
+void *relative_addr(const struct heap_t const *heap, struct chunk_header *chunk)
 {
-	return (ull)chunk - (ull)(heap->start_brk);
+	return (void*)chunk - (ull)(heap->start_brk);
 }
 
 void to_mult_of_8(size_t* bytes)
@@ -325,7 +344,7 @@ void print_bin(const struct heap_t const *heap, int i)
 {
 	struct chunk_header *bin = heap->bin[i];
 	for(struct chunk_header *iter = bin->next; iter != bin; iter = iter->next) {
-		printf("0x%08llx--------%llu\n", relative_addr(heap, iter), iter->chunk_size);
+		printf("0x%08llx--------%llu\n", (ull)relative_addr(heap, iter), iter->chunk_size);
 	}
 }
 

@@ -77,7 +77,7 @@ void free_chunk(struct chunk_header *chunk);
 
 void print_relative_addr(const struct heap_t const *heap,
                          struct chunk_header *chunk);
-ull relative_addr(const struct heap_t const *heap, struct chunk_header *entry);
+void* relative_addr(const struct heap_t const *heap, struct chunk_header *entry);
 void to_mult_of_8(size_t* bytes);
 void print_bin(const struct heap_t const *heap, int i);
 void print_bin_all();
