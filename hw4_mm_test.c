@@ -1,3 +1,4 @@
+#include <stdlib.h>
 #include "hw4_mm_test.h"
 
 void next_chunk_print(struct chunk_header **chunk)
@@ -6,7 +7,28 @@ void next_chunk_print(struct chunk_header **chunk)
 	printf("%p chunk\n", *chunk);
 }
 
+#define N_BUFFER 100
 int main()
+{
+	char buf[N_BUFFER];
+	while(fgets(buf, N_BUFFER -1, stdin)){
+		size_t alloc_bytes;
+		void *mem;
+		int bin_num;
+		if(sscanf(buf, "alloc %lu", &alloc_bytes) == 1)
+			printf("0x%08llx\n", (ull)(hw_malloc(alloc_bytes) - (ull)HEAP->start_brk));
+		else if(sscanf(buf, "free %p", &mem) == 1)
+			printf("%s\n", hw_free(mem) ? "success" : "failed");
+		else if(sscanf(buf, "print bin[%d]", &bin_num))
+			print_bin(HEAP, bin_num);
+		else{
+			fprintf(stderr, "can't found command: %s\n", buf);
+			exit(EXIT_FAILURE);
+		}
+	}
+}
+
+int maIN()
 {
 
 	int* a = hw_malloc(8);
@@ -17,8 +39,6 @@ int main()
 	print_bin_all();
 
 	struct chunk_header *chunk = get_chunk_header((void*)a);
-
-
 
 
 	int *b = hw_malloc(14);

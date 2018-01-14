@@ -8,7 +8,6 @@
 								fflush(stdout);		\
 							}while(0)
 
-
 void my_puts(const char *str)
 {
 	puts(str);
@@ -22,11 +21,14 @@ void *hw_malloc(size_t bytes)
 		heap_init(&HEAP, DEFAULT_HEAP_SIZE);
 	struct chunk_header *chunk = try_find_free(HEAP, bytes);
 	if(chunk) {
-		printf("%llu found chunk_size in hw_malloc\n", chunk->chunk_size);
 		malloc_chunk(chunk);
 		const int required_bytes = bytes + sizeof(struct chunk_header);
 		if(chunk->chunk_size >= required_bytes + MINIMUM_FREE_SPACE)
 			split(chunk, bytes);
+//		printf("chunk: ");
+//		print_relative_addr(HEAP, chunk);
+//		puts("");
+
 		return get_data_ptr(chunk);
 	}
 	return NULL;
@@ -35,16 +37,35 @@ void *hw_malloc(size_t bytes)
 int hw_free(void *mem)
 {
 	// TODO find which heap
-	// check if valid
+	if(!is_valid(mem))
+		return 0;
+	
 	struct chunk_header *chunk = get_chunk_header(mem);
 	free_chunk(chunk);
 
-	return 0;
+	struct chunk_header *upper_chunk = find_next_chunk(HEAP, chunk);
+	if (is_free(upper_chunk) && upper_chunk > chunk)
+		merge(chunk, upper_chunk);
+
+	struct chunk_header *lower_chunk = find_prev_chunk(HEAP, chunk);
+	if (is_free(lower_chunk) && lower_chunk < chunk)
+		merge(lower_chunk, chunk);
+
+	return true;
 }
 
 void *get_start_sbrk(void)
 {
 	return HEAP->start_brk; // TODO multi heap ?
+}
+
+void merge(struct chunk_header *lower_chunk, struct chunk_header *upper_chunk)
+{
+	malloc_chunk(lower_chunk);
+	malloc_chunk(upper_chunk);
+	chunk_init(lower_chunk, lower_chunk->chunk_size + upper_chunk->chunk_size,
+	           lower_chunk->pre_chunk_size, lower_chunk->prev_free_flag);
+	free_chunk(lower_chunk);
 }
 
 void heap_init(struct heap_t** heap, size_t bytes)
@@ -90,7 +111,6 @@ void chunk_init(struct chunk_header *chunk, chunk_size_t chunk_size,
 bool split(struct chunk_header *ori_chunk,
            size_t split_size) // TODO smaller than 48
 {
-	my_puts("split");
 	const int split_chunk_size = sizeof(struct chunk_header) + split_size;
 	struct chunk_header* upper_chunk = (struct chunk_header*)((
 	                                       void*)ori_chunk + split_chunk_size);
@@ -118,11 +138,7 @@ int get_bin_num(size_t bytes)
 {
 	assert((bytes & 0b111) == 0);
 	assert(bytes > 0);
-	printf("bytes = %u\n", bytes);
-	fflush(stdout);
 	const int index = (bytes >> 3) - 1;
-	printf("index = %u\n", index);
-	fflush(stdout);
 	return index < BIN_NUM - 1 ? index : BIN_NUM - 1;
 }
 
@@ -163,23 +179,17 @@ void __list_del(struct chunk_header *prev, struct chunk_header *next)
 void list_add_decending(const struct heap_t const *heap,
                         struct chunk_header *entry)
 {
-	my_puts("list_add_decending");
 	assert(heap != NULL);
 	assert(entry != NULL && entry->next == NULL && entry->prev == NULL);
 
-	my_puts("1");
-	printf("entry size = %llu\n", entry->chunk_size);
 	struct chunk_header *bin = heap->bin[get_bin_num(get_data_size(entry))];
-	my_puts("2");
 	struct chunk_header *iter = bin->next;
 	while (iter != bin) {
-		my_puts("while");
 		if (entry->chunk_size > iter->chunk_size)
 			break;
 		iter = iter->next;
 	}
 	__list_add(entry, iter->prev, iter);
-	my_puts("list_add_decending end");
 }
 
 bool list_try_del(struct chunk_header *entry)
@@ -199,8 +209,22 @@ bool inside_heap(const struct heap_t const *heap, struct chunk_header *entry)
 	       && (void*)entry < heap->start_brk + heap->size;
 }
 
+struct chunk_header* find_prev_chunk(const struct heap_t const *heap,
+                                     const struct chunk_header *entry)
+{
+
+	struct chunk_header *prev_chunk = (struct chunk_header*)((
+	                                      void*)entry - entry->pre_chunk_size);
+	if(!inside_heap(heap, prev_chunk)) {
+		prev_chunk = (struct chunk_header*)((void*)prev_chunk + heap->size);
+		assert((void*)prev_chunk + prev_chunk->chunk_size == heap->start_brk +
+		       heap->size);
+	}
+	return prev_chunk;
+}
+
 struct chunk_header* find_next_chunk(const struct heap_t const *heap,
-                                     struct chunk_header *entry)
+                                     const struct chunk_header *entry)
 {
 
 	struct chunk_header *next_chunk = (struct chunk_header*)((
@@ -212,15 +236,32 @@ struct chunk_header* find_next_chunk(const struct heap_t const *heap,
 	return next_chunk;
 }
 
-bool empty(const struct chunk_header const *bin)
+bool is_free(const struct chunk_header const *chunk)
+{
+	struct chunk_header *next_chunk = find_next_chunk(HEAP, chunk);
+	return next_chunk->prev_free_flag;
+}
+
+bool is_empty(const struct chunk_header const *bin)
 {
 	return bin->next == bin;
+}
+
+bool is_valid(void *mem)
+{
+	struct chunk_header *chunk = get_chunk_header(mem);
+	for(struct chunk_header *iter_chunk = (struct chunk_header*)(HEAP->start_brk); (void*)iter_chunk < HEAP->start_brk + HEAP->size; iter_chunk = find_next_chunk(HEAP, iter_chunk)){
+		printf("%p iter_chunk\n", iter_chunk);
+		if(iter_chunk == chunk)
+			return true;
+	}
+	return false;
 }
 
 struct chunk_header *try_find_free_bin(const struct chunk_header const *bin,
                                        size_t bytes)
 {
-	assert(empty(bin) == false);
+	assert(is_empty(bin) == false);
 	const int min_size = bytes + sizeof(struct chunk_header);
 	struct chunk_header *iter = bin->next;
 	while (iter != bin) {
@@ -240,7 +281,7 @@ struct chunk_header *try_find_free(const struct heap_t const *heap,
 {
 	int bin_start = get_bin_num(bytes);
 	for(int i = bin_start; i < BIN_NUM; ++i) {
-		if(!empty(heap->bin[i])) {
+		if(!is_empty(heap->bin[i])) {
 			return try_find_free_bin(heap->bin[i], bytes);
 		}
 	}
@@ -256,17 +297,20 @@ void malloc_chunk(struct chunk_header *chunk)
 
 void free_chunk(struct chunk_header *chunk)
 {
-	my_puts("free_chunk");
 	struct chunk_header *next_chunk = find_next_chunk(HEAP, chunk);
 	next_chunk->prev_free_flag = true;
 	next_chunk->pre_chunk_size = chunk->chunk_size;
 	list_add_decending(HEAP, chunk); // TODO try?
-	my_puts("free_chunk end");
 }
 
-ull relative_addr(const struct heap_t const *heap, struct chunk_header *entry)
+void print_relative_addr(const struct heap_t const *heap, struct chunk_header *chunk)
 {
-	return (ull)entry - (ull)(heap->start_brk);
+	printf("0x%08llx", relative_addr(heap, chunk));
+}
+
+ull relative_addr(const struct heap_t const *heap, struct chunk_header *chunk)
+{
+	return (ull)chunk - (ull)(heap->start_brk);
 }
 
 void to_mult_of_8(size_t* bytes)
@@ -276,16 +320,17 @@ void to_mult_of_8(size_t* bytes)
 
 void print_bin(const struct heap_t const *heap, int i)
 {
-	printf("bin %d: \n", i);
 	struct chunk_header *bin = heap->bin[i];
 	for(struct chunk_header *iter = bin->next; iter != bin; iter = iter->next) {
 		printf("0x%08llx--------%llu\n", relative_addr(heap, iter), iter->chunk_size);
 	}
-	puts("");
 }
 
 void print_bin_all()
 {
-	for (int i = 0; i < BIN_NUM; ++i)
+	for (int i = 0; i < BIN_NUM; ++i){
+		printf("bin %d: \n", i);
 		print_bin(HEAP, i);
+		puts("");
+	}
 }
