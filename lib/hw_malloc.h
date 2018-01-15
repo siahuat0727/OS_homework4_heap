@@ -76,16 +76,15 @@ bool is_valid(void *mem);
 
 struct chunk_header *try_find_free_bin(const struct chunk_header const *bin,
                                        size_t bytes);
-struct chunk_header *find_free(size_t bytes);
+struct chunk_header *try_find_free(size_t bytes);
 
 void malloc_chunk(struct chunk_header *chunk);
 void free_chunk(struct chunk_header *chunk);
 
 void print_relative_addr(const struct heap_t const *heap,
                          struct chunk_header *chunk);
-void relative_to_real(const struct heap_t const *heap, void **mem);
-void *relative_addr(const struct heap_t const *heap,
-                    struct chunk_header *chunk);
+void relative_to_real(void **mem);
+void *get_relative_addr(struct chunk_header *chunk);
 void to_mult_of_8(size_t* bytes);
 void print_bin(const struct heap_t const *heap, int i);
 

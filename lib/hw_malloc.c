@@ -6,13 +6,13 @@
 void *hw_malloc(size_t bytes)
 {
 	to_mult_of_8(&bytes);
-	struct chunk_header *chunk = find_free(bytes);
+	struct chunk_header *chunk = try_find_free(bytes);
 	if(chunk) {
 		malloc_chunk(chunk);
 		const int required_bytes = bytes + sizeof(struct chunk_header);
 		if(chunk->chunk_size >= required_bytes + MINIMUM_FREE_SPACE)
 			split(chunk, bytes);
-		return relative_addr(HEAP, get_data_ptr(chunk));
+		return get_data_ptr(get_relative_addr(chunk));
 	}
 	return NULL;
 }
@@ -20,7 +20,7 @@ void *hw_malloc(size_t bytes)
 int hw_free(void *mem)
 {
 	// TODO find which heap
-	relative_to_real(HEAP, &mem);
+	relative_to_real(&mem); // TODO if not valid?
 
 	struct chunk_header *chunk = get_chunk_header(mem);
 	if(!is_valid(mem) || is_free(chunk))
@@ -230,6 +230,8 @@ bool is_valid(void *mem)
 {
 	struct chunk_header *chunk = get_chunk_header(mem);
 	struct heap_t *heap = get_heap(chunk);
+	if(heap == NULL)
+		return false; // TODO haven't check
 	struct chunk_header *first_chunk = (struct chunk_header *)(heap->start_brk);
 	if(chunk == first_chunk)
 		return true;
@@ -263,8 +265,10 @@ struct chunk_header *try_find_free_bin(const struct chunk_header const *bin,
 	return NULL;
 }
 
-struct chunk_header *find_free(size_t bytes)
+struct chunk_header *try_find_free(size_t bytes)
 {
+	if(bytes > DEFAULT_HEAP_SIZE - sizeof(struct chunk_header))
+		return NULL;
 	struct heap_t **heap = &HEAP;
 	while(true) {
 		if(*heap == NULL)
@@ -300,17 +304,33 @@ void free_chunk(struct chunk_header *chunk)
 void print_relative_addr(const struct heap_t const *heap,
                          struct chunk_header *chunk)
 {
-	printf("0x%08llx", (ull)relative_addr(heap, chunk));
+	printf("0x%08llx", (ull)get_relative_addr(chunk));
 }
 
-void relative_to_real(const struct heap_t const *heap, void **mem)
+void relative_to_real(void **mem)
 {
-	*mem += (ull)heap->start_brk;
+	struct heap_t *iter = HEAP;
+	while((ull)*mem >= iter->size) {
+		*mem -= iter->size;
+		iter = iter->next;
+		if(iter == NULL) {
+			*mem = (void*)(-1);
+			return;
+		}
+	}
+	*mem += (ull)(iter->start_brk);
 }
 
-void *relative_addr(const struct heap_t const *heap, struct chunk_header *chunk)
+void *get_relative_addr(struct chunk_header *chunk)
 {
-	return (void*)chunk - (ull)(heap->start_brk);
+	struct heap_t *heap = get_heap(chunk);
+	void *relative_addr = (void*)chunk - (ull)heap->start_brk;
+	struct heap_t *iter = HEAP;
+	while(iter != heap) {
+		relative_addr += iter->size;
+		iter = iter->next;
+	}
+	return relative_addr;
 }
 
 void to_mult_of_8(size_t* bytes)
@@ -322,6 +342,6 @@ void print_bin(const struct heap_t const *heap, int i)
 {
 	struct chunk_header *bin = heap->bin[i];
 	for(struct chunk_header *iter = bin->next; iter != bin; iter = iter->next)
-		printf("0x%08llx--------%llu\n", (ull)relative_addr(heap, iter),
+		printf("0x%08llx--------%llu\n", (ull)get_relative_addr(iter),
 		       iter->chunk_size);
 }
