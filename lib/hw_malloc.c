@@ -6,9 +6,7 @@
 void *hw_malloc(size_t bytes)
 {
 	to_mult_of_8(&bytes);
-	if(HEAP == NULL)
-		heap_init(&HEAP, DEFAULT_HEAP_SIZE);
-	struct chunk_header *chunk = try_find_free(HEAP, bytes);
+	struct chunk_header *chunk = find_free(bytes);
 	if(chunk) {
 		malloc_chunk(chunk);
 		const int required_bytes = bytes + sizeof(struct chunk_header);
@@ -30,11 +28,11 @@ int hw_free(void *mem)
 
 	free_chunk(chunk);
 
-	struct chunk_header *upper_chunk = find_next_chunk(HEAP, chunk);
+	struct chunk_header *upper_chunk = find_next_chunk(chunk);
 	if (is_free(upper_chunk) && upper_chunk > chunk)
 		merge(chunk, upper_chunk);
 
-	struct chunk_header *lower_chunk = find_prev_chunk(HEAP, chunk);
+	struct chunk_header *lower_chunk = find_prev_chunk(chunk);
 	if (is_free(lower_chunk) && lower_chunk < chunk)
 		merge(lower_chunk, chunk);
 
@@ -59,7 +57,7 @@ void heap_init(struct heap_t** heap, size_t bytes)
 
 	struct chunk_header *first_chunk = (struct chunk_header*)((*heap)->start_brk);
 	chunk_init(first_chunk, bytes, bytes, true); // TODO pre_chunk_size ?
-	list_add_decending(HEAP, first_chunk);
+	list_add_decending(first_chunk);
 }
 
 void bin_init(struct chunk_header **bin)
@@ -90,7 +88,7 @@ void split(struct chunk_header *ori_chunk, size_t split_size)
 	chunk_size_t pre_chunk_size = ori_chunk->pre_chunk_size;
 	chunk_flag_t prev_free_flag = ori_chunk->prev_free_flag;
 
-	if(ori_chunk == find_next_chunk(HEAP, ori_chunk)) {
+	if(ori_chunk == find_next_chunk(ori_chunk)) {
 		pre_chunk_size = upper_chunk->chunk_size;
 		prev_free_flag = true;
 	}
@@ -161,29 +159,28 @@ void __list_del(struct chunk_header *prev, struct chunk_header *next)
 	prev->next = next;
 }
 
-void list_add_decending(const struct heap_t const *heap,
-                        struct chunk_header *entry)
+void list_add_decending(struct chunk_header *chunk)
 {
-	assert(heap != NULL);
-	assert(entry != NULL && entry->next == NULL && entry->prev == NULL);
+	assert(chunk != NULL && chunk->next == NULL && chunk->prev == NULL);
 
-	struct chunk_header *bin = heap->bin[get_bin_num(get_data_size(entry))];
+	struct heap_t *heap = get_heap(chunk);
+	struct chunk_header *bin = heap->bin[get_bin_num(get_data_size(chunk))];
 	struct chunk_header *iter = bin->next;
 	while (iter != bin) {
-		if (entry->chunk_size > iter->chunk_size)
+		if (chunk->chunk_size > iter->chunk_size)
 			break;
 		iter = iter->next;
 	}
-	__list_add(entry, iter->prev, iter);
+	__list_add(chunk, iter->prev, iter);
 }
 
-void list_del(struct chunk_header *entry)
+void list_del(struct chunk_header *chunk)
 {
 	// if valid, then
-	assert(entry != NULL);
-	__list_del(entry->prev, entry->next);
-	entry->prev = NULL;
-	entry->next = NULL;
+	assert(chunk != NULL);
+	__list_del(chunk->prev, chunk->next);
+	chunk->prev = NULL;
+	chunk->next = NULL;
 }
 
 bool inside_heap(const struct heap_t const *heap,
@@ -193,11 +190,11 @@ bool inside_heap(const struct heap_t const *heap,
 	       && (void*)entry < heap->start_brk + heap->size;
 }
 
-struct chunk_header* find_prev_chunk(const struct heap_t const *heap,
-                                     const struct chunk_header *entry)
+struct chunk_header* find_prev_chunk(const struct chunk_header *chunk)
 {
 	struct chunk_header *prev_chunk = (struct chunk_header*)((
-	                                      void*)entry - entry->pre_chunk_size);
+	                                      void*)chunk - chunk->pre_chunk_size);
+	struct heap_t *heap = get_heap(chunk);
 	if(!inside_heap(heap, prev_chunk)) {
 		prev_chunk = (struct chunk_header*)((void*)prev_chunk + heap->size);
 		assert((void*)prev_chunk + prev_chunk->chunk_size == heap->start_brk +
@@ -206,11 +203,11 @@ struct chunk_header* find_prev_chunk(const struct heap_t const *heap,
 	return prev_chunk;
 }
 
-struct chunk_header* find_next_chunk(const struct heap_t const *heap,
-                                     const struct chunk_header *entry)
+struct chunk_header* find_next_chunk(const struct chunk_header *chunk)
 {
 	struct chunk_header *next_chunk = (struct chunk_header*)((
-	                                      void*)entry + entry->chunk_size);
+	                                      void*)chunk + chunk->chunk_size);
+	struct heap_t *heap = get_heap(chunk);
 	if(!inside_heap(heap, next_chunk)) {
 		next_chunk = (struct chunk_header*)((void*)next_chunk - heap->size);
 		assert((void*)next_chunk == heap->start_brk);
@@ -220,7 +217,7 @@ struct chunk_header* find_next_chunk(const struct heap_t const *heap,
 
 bool is_free(const struct chunk_header const *chunk)
 {
-	struct chunk_header *next_chunk = find_next_chunk(HEAP, chunk);
+	struct chunk_header *next_chunk = find_next_chunk(chunk);
 	return next_chunk->prev_free_flag;
 }
 
@@ -232,11 +229,12 @@ bool is_empty(const struct chunk_header const *bin)
 bool is_valid(void *mem)
 {
 	struct chunk_header *chunk = get_chunk_header(mem);
-	struct chunk_header *first_chunk = (struct chunk_header *)(HEAP->start_brk);
+	struct heap_t *heap = get_heap(chunk);
+	struct chunk_header *first_chunk = (struct chunk_header *)(heap->start_brk);
 	if(chunk == first_chunk)
 		return true;
-	for(struct chunk_header *iter_chunk = find_next_chunk(HEAP, first_chunk);
-	    iter_chunk != first_chunk; iter_chunk = find_next_chunk(HEAP, iter_chunk)) {
+	for(struct chunk_header *iter_chunk = find_next_chunk(first_chunk);
+	    iter_chunk != first_chunk; iter_chunk = find_next_chunk(iter_chunk)) {
 		if(iter_chunk == chunk)
 			return true;
 	}
@@ -265,29 +263,38 @@ struct chunk_header *try_find_free_bin(const struct chunk_header const *bin,
 	return NULL;
 }
 
-struct chunk_header *try_find_free(const struct heap_t const *heap,
-                                   size_t bytes)
+struct chunk_header *find_free(size_t bytes)
 {
-	int bin_start = get_bin_num(bytes);
-	for(int i = bin_start; i < BIN_NUM; ++i)
-		if(!is_empty(heap->bin[i]))
-			return try_find_free_bin(heap->bin[i], bytes);
-	return NULL; // TODO malloc new heap
+	struct heap_t **heap = &HEAP;
+	while(true) {
+		if(*heap == NULL)
+			heap_init(heap, DEFAULT_HEAP_SIZE);
+		assert(*heap != NULL);
+		int bin_start = get_bin_num(bytes);
+		for(int i = bin_start; i < BIN_NUM; ++i) {
+			if(!is_empty((*heap)->bin[i])) {
+				struct chunk_header *free_chunk = try_find_free_bin((*heap)->bin[i], bytes);
+				if(free_chunk != NULL)
+					return free_chunk;
+			}
+		}
+		heap = &((*heap)->next);
+	}
 }
 
 void malloc_chunk(struct chunk_header *chunk)
 {
-	struct chunk_header *next_chunk = find_next_chunk(HEAP, chunk);
+	struct chunk_header *next_chunk = find_next_chunk(chunk);
 	next_chunk->prev_free_flag = false;
 	list_del(chunk); // TODO try?
 }
 
 void free_chunk(struct chunk_header *chunk)
 {
-	struct chunk_header *next_chunk = find_next_chunk(HEAP, chunk);
+	struct chunk_header *next_chunk = find_next_chunk(chunk);
 	next_chunk->prev_free_flag = true;
 	next_chunk->pre_chunk_size = chunk->chunk_size;
-	list_add_decending(HEAP, chunk); // TODO try?
+	list_add_decending(chunk);
 }
 
 void print_relative_addr(const struct heap_t const *heap,
@@ -314,8 +321,7 @@ void to_mult_of_8(size_t* bytes)
 void print_bin(const struct heap_t const *heap, int i)
 {
 	struct chunk_header *bin = heap->bin[i];
-	for(struct chunk_header *iter = bin->next; iter != bin; iter = iter->next) {
+	for(struct chunk_header *iter = bin->next; iter != bin; iter = iter->next)
 		printf("0x%08llx--------%llu\n", (ull)relative_addr(heap, iter),
 		       iter->chunk_size);
-	}
 }

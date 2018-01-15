@@ -49,6 +49,7 @@ void split(struct chunk_header *ori_chunk, size_t split_size);
 void merge(struct chunk_header *lower_chunk, struct chunk_header *upper_chunk);
 
 // get sth
+struct heap_t* get_heap(const struct chunk_header *chunk);
 int get_bin_num(size_t bytes);
 void* get_data_ptr(const struct chunk_header const *chunk);
 struct chunk_header* get_chunk_header(const void const *data);
@@ -58,17 +59,14 @@ size_t get_data_size(const struct chunk_header const *chunk);
 void __list_add(struct chunk_header *new_lst, struct chunk_header *prev,
                 struct chunk_header *next);
 void __list_del(struct chunk_header *prev, struct chunk_header *next);
-void list_add_decending(const struct heap_t const *heap,
-                        struct chunk_header *entry);
+void list_add_decending(struct chunk_header *entry);
 void list_del(struct chunk_header *entry);
 
 // heap
 bool inside_heap(const struct heap_t const *heap,
                  const struct chunk_header *entry);
-struct chunk_header* find_prev_chunk(const struct heap_t const *heap,
-                                     const struct chunk_header *entry);
-struct chunk_header* find_next_chunk(const struct heap_t const *heap,
-                                     const struct chunk_header *entry);
+struct chunk_header* find_prev_chunk(const struct chunk_header *entry);
+struct chunk_header* find_next_chunk(const struct chunk_header *entry);
 
 // check
 bool is_free(const struct chunk_header const *chunk);
@@ -78,8 +76,7 @@ bool is_valid(void *mem);
 
 struct chunk_header *try_find_free_bin(const struct chunk_header const *bin,
                                        size_t bytes);
-struct chunk_header *try_find_free(const struct heap_t const *heap,
-                                   size_t bytes);
+struct chunk_header *find_free(size_t bytes);
 
 void malloc_chunk(struct chunk_header *chunk);
 void free_chunk(struct chunk_header *chunk);
