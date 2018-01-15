@@ -63,7 +63,8 @@ void list_add_decending(const struct heap_t const *heap,
 void list_del(struct chunk_header *entry);
 
 // heap
-bool inside_heap(const struct heap_t const *heap, const struct chunk_header *entry);
+bool inside_heap(const struct heap_t const *heap,
+                 const struct chunk_header *entry);
 struct chunk_header* find_prev_chunk(const struct heap_t const *heap,
                                      const struct chunk_header *entry);
 struct chunk_header* find_next_chunk(const struct heap_t const *heap,
@@ -86,7 +87,8 @@ void free_chunk(struct chunk_header *chunk);
 void print_relative_addr(const struct heap_t const *heap,
                          struct chunk_header *chunk);
 void relative_to_real(const struct heap_t const *heap, void **mem);
-void *relative_addr(const struct heap_t const *heap, struct chunk_header *chunk);
+void *relative_addr(const struct heap_t const *heap,
+                    struct chunk_header *chunk);
 void to_mult_of_8(size_t* bytes);
 void print_bin(const struct heap_t const *heap, int i);
 

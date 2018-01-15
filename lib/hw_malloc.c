@@ -23,7 +23,7 @@ int hw_free(void *mem)
 {
 	// TODO find which heap
 	relative_to_real(HEAP, &mem);
-	
+
 	struct chunk_header *chunk = get_chunk_header(mem);
 	if(!is_valid(mem) || is_free(chunk))
 		return 0;
@@ -90,7 +90,7 @@ void split(struct chunk_header *ori_chunk, size_t split_size)
 	chunk_size_t pre_chunk_size = ori_chunk->pre_chunk_size;
 	chunk_flag_t prev_free_flag = ori_chunk->prev_free_flag;
 
-	if(ori_chunk == find_next_chunk(HEAP, ori_chunk)){
+	if(ori_chunk == find_next_chunk(HEAP, ori_chunk)) {
 		pre_chunk_size = upper_chunk->chunk_size;
 		prev_free_flag = true;
 	}
@@ -186,7 +186,8 @@ void list_del(struct chunk_header *entry)
 	entry->next = NULL;
 }
 
-bool inside_heap(const struct heap_t const *heap, const struct chunk_header *entry)
+bool inside_heap(const struct heap_t const *heap,
+                 const struct chunk_header *entry)
 {
 	return (void*)entry >= heap->start_brk
 	       && (void*)entry < heap->start_brk + heap->size;
