@@ -38,37 +38,45 @@ extern void *hw_malloc(size_t bytes);
 extern int hw_free(void *mem);
 extern void *get_start_sbrk(void);
 
-void merge(struct chunk_header *lower_chunk, struct chunk_header *upper_chunk);
-
+// init
 void heap_init(struct heap_t** heap, size_t bytes);
 void bin_init(struct chunk_header **bin);
 void chunk_init(struct chunk_header *chunk, chunk_size_t chunk_size,
                 chunk_size_t pre_chunk_size, chunk_flag_t prev_free_flag);
-bool split(struct chunk_header *ori_chunk,
-           size_t split_size); // TODO smaller than 48
 
-void* get_data_ptr(struct chunk_header *chunk);
-struct chunk_header* get_chunk_header(void *data);
-size_t get_data_size(struct chunk_header *chunk);
+// split and merge
+void split(struct chunk_header *ori_chunk, size_t split_size);
+void merge(struct chunk_header *lower_chunk, struct chunk_header *upper_chunk);
 
+// get sth
+int get_bin_num(size_t bytes);
+void* get_data_ptr(const struct chunk_header const *chunk);
+struct chunk_header* get_chunk_header(const void const *data);
+size_t get_data_size(const struct chunk_header const *chunk);
+
+// list
 void __list_add(struct chunk_header *new_lst, struct chunk_header *prev,
                 struct chunk_header *next);
 void __list_del(struct chunk_header *prev, struct chunk_header *next);
 void list_add_decending(const struct heap_t const *heap,
                         struct chunk_header *entry);
-bool list_try_del(struct chunk_header *entry);
+void list_del(struct chunk_header *entry);
 
-bool inside_heap(const struct heap_t const *heap, struct chunk_header *entry);
-
+// heap
+bool inside_heap(const struct heap_t const *heap, const struct chunk_header *entry);
 struct chunk_header* find_prev_chunk(const struct heap_t const *heap,
                                      const struct chunk_header *entry);
 struct chunk_header* find_next_chunk(const struct heap_t const *heap,
                                      const struct chunk_header *entry);
 
-bool is_empty(const struct chunk_header const *bin);
+// check
 bool is_free(const struct chunk_header const *chunk);
+bool is_empty(const struct chunk_header const *bin);
 bool is_valid(void *mem);
 
+
+struct chunk_header *try_find_free_bin(const struct chunk_header const *bin,
+                                       size_t bytes);
 struct chunk_header *try_find_free(const struct heap_t const *heap,
                                    size_t bytes);
 
@@ -77,11 +85,9 @@ void free_chunk(struct chunk_header *chunk);
 
 void print_relative_addr(const struct heap_t const *heap,
                          struct chunk_header *chunk);
-void* relative_addr(const struct heap_t const *heap,
-                    struct chunk_header *entry);
+void relative_to_real(const struct heap_t const *heap, void **mem);
+void *relative_addr(const struct heap_t const *heap, struct chunk_header *chunk);
 void to_mult_of_8(size_t* bytes);
 void print_bin(const struct heap_t const *heap, int i);
-void print_bin_all();
-
 
 #endif
