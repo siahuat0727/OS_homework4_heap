@@ -19,8 +19,7 @@ void *hw_malloc(size_t bytes)
 
 int hw_free(void *mem)
 {
-	// TODO find which heap
-	relative_to_real(&mem); // TODO if not valid?
+	relative_to_real(&mem);
 
 	struct chunk_header *chunk = get_chunk_header(mem);
 	if(!is_valid(mem) || is_free(chunk))
